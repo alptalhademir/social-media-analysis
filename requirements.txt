@@ -1,0 +1,17 @@
+transformers
+torch
+sentence-transformers
+pandas
+numpy
+google-cloud-aiplatform
+google-cloud-storage
+kafka-python-ng
+grpcio
+grpcio-tools
+protobuf
+pymongo
+python-dotenv
+pyyaml
+requests
+datasets
+peft
