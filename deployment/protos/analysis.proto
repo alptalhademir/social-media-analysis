@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package analysis;
+
+// Opinion with optional type classification
+message Opinion {
+  string text = 1;
+  string type = 2;  // Empty in request, filled in response: Claim, Evidence, etc.
+}
+
+// Request for analyzing a set of opinions
+message AnalysisRequest {
+  string topic = 1;
+  repeated Opinion opinions = 2;
+}
+
+// Response with grouped and classified opinions plus conclusion
+message AnalysisResponse {
+  string topic = 1;
+  repeated OpinionGroup groups = 2;
+  string conclusion = 3;
+  string formatted_text = 4; // Formatted output for display
+}
+
+// A group of related opinions
+message OpinionGroup {
+  string group_id = 1;
+  repeated Opinion opinions = 2;
+}
+
+// For backward compatibility or simpler use cases
+message ClassifyOpinionRequest {
+  string topic = 1;
+  string opinion_text = 2;
+}
+
+message ClassifyOpinionResponse {
+  string type = 1;  // Claim, Evidence, Counterclaim, or Rebuttal
+  float confidence = 2;
+}
+
+service AnalysisService {
+  // Workflow - group opinions, classify them, and generate conclusion
+  rpc AnalyzeOpinions (AnalysisRequest) returns (AnalysisResponse);
+  
+  // Simple classification of a single opinion
+  rpc ClassifyOpinion (ClassifyOpinionRequest) returns (ClassifyOpinionResponse);
+}

@@ -25,7 +25,7 @@ PACKAGED_LLM_URI = f"{LLM_ARTIFACT_URI}_packaged"
 TB_URI_LLM = os.getenv("TB_URI_LLM")
 
 def package_models():
-    """Package models with their handlers before deployment"""
+    # Package models with their handlers before deployment
     try:
         logger.info("Packaging classifier model with handler...")
         
@@ -37,12 +37,13 @@ def package_models():
         classifier_packager = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(classifier_packager)
         
-        # Package the classifier model
+        # Package the classifier model - update function to support new structure
         classifier_handler = "model/handlers/classifier_handler.py"
         classifier_packager.package_classifier_model_for_deployment(
-            CLASSIFIER_ARTIFACT_URI, 
-            PACKAGED_CLASSIFIER_URI, 
-            classifier_handler
+            CLASSIFIER_ARTIFACT_URI,
+            PACKAGED_CLASSIFIER_URI,
+            classifier_handler,
+            sentence_model_dir=f"{CLASSIFIER_ARTIFACT_URI}/sentence_model"
         )
         
         logger.info("Packaging LLM model with handler...")
@@ -50,12 +51,12 @@ def package_models():
         # Load the LLM packaging module
         spec = importlib.util.spec_from_file_location(
             "package_llm", 
-            "model/packaging/package_llm_model.py"
+            "model/packaging/package_llm.py"
         )
         llm_packager = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(llm_packager)
         
-        # Package the LLM model
+        # Package the LLM model - this is now a LoRA adapter
         llm_handler = "model/handlers/llm_handler.py"
         llm_packager.package_model_for_deployment(
             LLM_ARTIFACT_URI, 
@@ -71,7 +72,7 @@ def package_models():
 
 @retry.Retry()
 def deploy_classifier():
-    """Deploy the classifier model to Vertex AI"""
+    # Deploy the classifier model to Vertex AI
     try:
         aiplatform.init(
             project=PROJECT_ID, 
@@ -90,7 +91,7 @@ def deploy_classifier():
             }
         )
         classifier_endpoint = classifier_model.deploy(
-            machine_type="n1-standard-4",
+            machine_type="n1-standard-8",
             accelerator_type="NVIDIA_TESLA_T4",
             accelerator_count=1,
             min_replica_count=1,
@@ -104,7 +105,7 @@ def deploy_classifier():
 
 @retry.Retry()
 def deploy_llm():
-    """Deploy the LLM model to Vertex AI"""
+    # Deploy the LLM model to Vertex AI
     try:
         aiplatform.init(
             project=PROJECT_ID, 
@@ -123,7 +124,7 @@ def deploy_llm():
             }
         )
         llm_endpoint = llm_model.deploy(
-            machine_type="n1-standard-4",
+            machine_type="n1-standard-8",
             accelerator_type="NVIDIA_TESLA_T4",
             accelerator_count=1,
             min_replica_count=1,
@@ -136,7 +137,7 @@ def deploy_llm():
         raise
 
 def upload_data_to_gcs():
-    #Upload data files to Google Cloud Storage
+    #Upload data files to Google Cloud Storage"""
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(os.getenv('BUCKET_NAME'))
@@ -157,10 +158,8 @@ def upload_data_to_gcs():
         logger.error(f"Failed to upload data: {str(e)}")
         raise
 
-# Add after upload_data_to_gcs()
-
 def submit_training_jobs():
-    """Submit training jobs to Vertex AI"""
+    #Submit training jobs to Vertex AI
     try:
         aiplatform.init(
             project=PROJECT_ID, 
@@ -201,7 +200,7 @@ def submit_training_jobs():
             display_name="classifier_training",
             script_path="model/training/fine_tune_classifier.py",
             container_uri="us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-3.py310:latest",
-            requirements=["datasets"]
+            requirements=["datasets", "transformers", "sentence_transformers", "accelerate"]
         )
 
         
@@ -247,7 +246,7 @@ def submit_training_jobs():
         raise
 
 def validate_environment():
-    """Validate all required environment variables are set"""
+    #Validate all required environment variables are set
     required_vars = [
         "PROJECT_ID", "REGION", "BUCKET_NAME",
         "CLASSIFIER_ARTIFACT_URI", "LLM_ARTIFACT_URI"
@@ -261,7 +260,7 @@ if __name__ == "__main__":
         validate_environment()
         logger.info("Starting deployment process...")
         
-        # First upload data
+        # Uupload data
         logger.info("Uploading data files...")
         upload_data_to_gcs()
         
